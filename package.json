@@ -1,0 +1,18 @@
+{
+  "name": "pedidos-tacos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "App de pedidos para puesto de tacos, con base de datos PostgreSQL",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "pg": "^8.11.5",
+    "cors": "^2.8.5",
+    "bcryptjs": "^2.4.3"
+  }
+}
