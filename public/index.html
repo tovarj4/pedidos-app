@@ -2,8 +2,18 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Pedidos del Puesto</title>
+
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0F3D3E">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pedidos Puesto">
+
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
 
@@ -125,10 +135,13 @@
   .bar-fill.marlin { background: var(--marlin); }
   .bar-val { font-family: 'IBM Plex Mono', monospace; font-weight: 600; width: 34px; text-align: right; flex: none; }
 
-  .vendor-split { display: flex; gap: 10px; }
-  .vendor-card { flex: 1; background: var(--teal); border-radius: 12px; padding: 12px 14px; color: #fff; }
-  .vendor-card .v-name { font-family: 'Baloo 2', sans-serif; font-weight: 700; font-size: 14px; }
-  .vendor-card .v-amt { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 19px; color: var(--corn); margin-top: 2px; }
+  .vendor-split { display: flex; flex-direction: column; gap: 10px; }
+  .vendor-card { background: var(--teal); border-radius: 12px; padding: 14px 16px; color: #fff; }
+  .vendor-card .v-name { font-family: 'Baloo 2', sans-serif; font-weight: 700; font-size: 15px; margin-bottom: 8px; }
+  .vendor-card .v-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 12.5px; color: #C7DAD3; }
+  .vendor-card .v-row .v-val { font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: #fff; }
+  .vendor-card .v-row.entregar { border-top: 1px dashed rgba(255,255,255,0.25); margin-top: 6px; padding-top: 10px; font-size: 13.5px; font-weight: 700; color: var(--corn); }
+  .vendor-card .v-row.entregar .v-val { color: var(--corn); font-size: 18px; }
 
   .taco-count-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line); }
   .taco-count-row:last-child { border-bottom: none; }
@@ -226,7 +239,7 @@
 
       <div class="total-preview"><span>Total del pedido</span><span class="amt" id="previewTotal">$0.00</span></div>
 
-      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;">
+      <label id="fEsVendedorLabel" style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;">
         <input type="checkbox" id="fEsVendedor" style="width:17px;height:17px;">
         🎁 Consumo del vendedor (gratis)
       </label>
@@ -270,7 +283,7 @@
         <div id="tacoBreakdown"></div>
       </div>
       <div class="card">
-        <h2>👤 Total por vendedor</h2>
+        <h2>👤 Corte por vendedor</h2>
         <div class="vendor-split" id="vendorSplit"></div>
       </div>
     </div>
@@ -356,6 +369,7 @@
     insumos: {}, vendedores: [], compradores: [],
     editingId: null,
     qty: { tCamaron: 0, tMarlin: 0, eCamaron: 0, eMarlin: 0 },
+    formEsVendedor: false,
     isAdmin: false, adminPin: '',
     currentVendedor: null,   // {id, nombre} cuando entra un vendedor
     formVendedor: null       // vendedor asignado al pedido en curso (para sesiones de vendedor)
@@ -574,10 +588,12 @@
     return (qty.tCamaron * p.tacoCamaron) + (qty.tMarlin * p.tacoMarlin) + (qty.eCamaron * p.empCamaron) + (qty.eMarlin * p.empMarlin);
   }
   function updatePreviewTotal(){
-    const esVendedor = $('#fEsVendedor').checked;
-    $('#previewTotal').textContent = esVendedor ? '$0.00 (gratis)' : money(calcTotal(state.qty));
+    $('#previewTotal').textContent = state.formEsVendedor ? '$0.00 (gratis)' : money(calcTotal(state.qty));
   }
-  $('#fEsVendedor').addEventListener('change', updatePreviewTotal);
+  $('#fEsVendedor').addEventListener('change', ()=>{
+    state.formEsVendedor = $('#fEsVendedor').checked;
+    updatePreviewTotal();
+  });
 
   function renderVendorSelect(){
     const sel = $('#fVendedor');
@@ -596,6 +612,10 @@
       fixed.textContent = '🙋 ' + (v ? v.nombre : '');
       if (v) sel.value = v.id;
     }
+
+    const esVendedorLabel = $('#fEsVendedorLabel');
+    esVendedorLabel.style.display = state.isAdmin ? 'flex' : 'none';
+    $('#fEsVendedor').checked = state.formEsVendedor;
   }
 
   // ---------------- Compradores autocomplete ----------------
@@ -628,7 +648,7 @@
   $('#btnAddPedido').addEventListener('click', async ()=>{
     const nombre = fNombre.value.trim();
     if (!nombre){ toast('Escribe el nombre del cliente'); return; }
-    const esVendedor = $('#fEsVendedor').checked;
+    const esVendedor = state.formEsVendedor;
     const total = esVendedor ? 0 : calcTotal(state.qty);
     if (!esVendedor && total === 0){ toast('Agrega al menos un producto'); return; }
     let vendedor;
@@ -669,7 +689,7 @@
 
   function resetForm(){
     fNombre.value = '';
-    $('#fEsVendedor').checked = false;
+    state.formEsVendedor = false;
     state.qty = { tCamaron:0, tMarlin:0, eCamaron:0, eMarlin:0 };
     state.formVendedor = state.currentVendedor;
     ['tCamaron','tMarlin','eCamaron','eMarlin'].forEach(k => $('#val-' + k).textContent = '0');
@@ -681,7 +701,7 @@
     fNombre.value = pedido.nombre;
     $('#fVendedor').value = pedido.vendedorId;
     state.formVendedor = { id: pedido.vendedorId, nombre: pedido.vendedorNombre };
-    $('#fEsVendedor').checked = !!pedido.esVendedor;
+    state.formEsVendedor = !!pedido.esVendedor;
     state.qty = { tCamaron: pedido.tCamaron, tMarlin: pedido.tMarlin, eCamaron: pedido.eCamaron, eMarlin: pedido.eMarlin };
     ['tCamaron','tMarlin','eCamaron','eMarlin'].forEach(k => $('#val-' + k).textContent = state.qty[k]);
     updatePreviewTotal();
@@ -694,6 +714,7 @@
   function exitEditMode(){
     state.editingId = null;
     state.formVendedor = state.currentVendedor;
+    state.formEsVendedor = false;
     $('#formTitle').textContent = '🎫 Nuevo pedido';
     $('#btnAddPedido').textContent = 'Agregar pedido';
     $('#btnCancelEdit').style.display = 'none';
@@ -708,8 +729,14 @@
     } catch(e){ toast('Error al eliminar: ' + e.message); }
   }
 
+  function getVisiblePedidos(){
+    const all = state.pedidos[state.activeDay] || [];
+    if (state.isAdmin || !state.currentVendedor) return all;
+    return all.filter(p => p.vendedorId === state.currentVendedor.id);
+  }
+
   function renderTicketList(){
-    const list = state.pedidos[state.activeDay] || [];
+    const list = getVisiblePedidos();
     const container = $('#ticketList');
     $('#dayCountBadge').textContent = '· ' + state.activeDay;
     if (!list.length){
@@ -768,12 +795,24 @@
     ['tCamaron','tMarlin','eCamaron','eMarlin'].forEach(k=>{ $('#bar-' + k).style.width = Math.round((totals[k]/maxVal)*100) + '%'; $('#v-' + k).textContent = totals[k]; });
 
     const byVendor = {};
-    state.vendedores.forEach(v => byVendor[v.id] = { nombre: v.nombre, total: 0 });
-    list.forEach(p=>{ if (!byVendor[p.vendedorId]) byVendor[p.vendedorId] = { nombre: p.vendedorNombre, total: 0 }; byVendor[p.vendedorId].total += Number(p.total); });
+    state.vendedores.forEach(v => byVendor[v.id] = { nombre: v.nombre, total: 0, pedidos: 0 });
+    list.forEach(p=>{
+      if (!byVendor[p.vendedorId]) byVendor[p.vendedorId] = { nombre: p.vendedorNombre, total: 0, pedidos: 0 };
+      byVendor[p.vendedorId].total += Number(p.total);
+      byVendor[p.vendedorId].pedidos += 1;
+    });
     const vs = $('#vendorSplit'); vs.innerHTML = '';
     Object.values(byVendor).forEach(v=>{
+      const comision = v.total * COMISION_PCT;
+      const aEntregar = v.total - comision;
       const el = document.createElement('div'); el.className = 'vendor-card';
-      el.innerHTML = `<div class="v-name">${escapeHtml(v.nombre)}</div><div class="v-amt">${money(v.total)}</div><div style="font-size:11px;color:#C7DAD3;margin-top:4px;">Comisión: ${money(v.total * COMISION_PCT)}</div>`;
+      el.innerHTML = `
+        <div class="v-name">${escapeHtml(v.nombre)}</div>
+        <div class="v-row"><span>Pedidos vendidos</span><span class="v-val">${v.pedidos}</span></div>
+        <div class="v-row"><span>Total vendido</span><span class="v-val">${money(v.total)}</span></div>
+        <div class="v-row"><span>Su comisión (10%)</span><span class="v-val">${money(comision)}</span></div>
+        <div class="v-row entregar"><span>💵 Debe entregar</span><span class="v-val">${money(aEntregar)}</span></div>
+      `;
       vs.appendChild(el);
     });
 
@@ -877,7 +916,7 @@
   });
 
   function exportCsv(){
-    const list = state.pedidos[state.activeDay] || [];
+    const list = getVisiblePedidos();
     if (!list.length){ toast('No hay pedidos que exportar'); return; }
     const headers = ['Nombre','Vendedor','Tacos camarón','Tacos marlín','Empanada camarón','Empanada marlín','Total tacos','Gratis (vendedor)','Total'];
     const rows = list.map(p => [
