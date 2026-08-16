@@ -1,7 +1,7 @@
 {
-  "name": "Pedidos del Puesto",
-  "short_name": "Pedidos Puesto",
-  "description": "App de pedidos para el puesto de tacos y empanadas",
+  "name": "Pedidos Tacos",
+  "short_name": "Pedidos Tacos",
+  "description": "App de pedidos para de tacos y empanadas",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#FAF6EC",

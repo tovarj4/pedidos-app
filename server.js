@@ -70,6 +70,7 @@ async function initDb() {
   // Migración segura: agrega la columna es_vendedor si la tabla ya existía sin ella
   await pool.query(`ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS es_vendedor BOOLEAN DEFAULT false;`);
   await pool.query(`ALTER TABLE vendedores ADD COLUMN IF NOT EXISTS pin_hash TEXT;`);
+  await pool.query(`ALTER TABLE dias ADD COLUMN IF NOT EXISTS fecha DATE;`);
 
   const vendorCount = await pool.query('SELECT COUNT(*)::int AS c FROM vendedores');
   if (vendorCount.rows[0].c === 0) {
@@ -132,14 +133,16 @@ app.post('/api/admin/verify', async (req, res) => {
 // Días
 // ---------------------------------------------------------------------
 app.get('/api/dias', async (req, res) => {
-  const r = await pool.query('SELECT label FROM dias ORDER BY created_at DESC');
-  res.json(r.rows.map(x => x.label));
+  const r = await pool.query(
+    "SELECT label, to_char(fecha,'YYYY-MM-DD') AS fecha FROM dias ORDER BY fecha DESC NULLS LAST, created_at DESC"
+  );
+  res.json(r.rows);
 });
 
-app.post('/api/dias', async (req, res) => {
-  const { label } = req.body;
+app.post('/api/dias', requireAdmin, async (req, res) => {
+  const { label, fecha } = req.body;
   if (!label) return res.status(400).json({ error: 'missing-label' });
-  await pool.query('INSERT INTO dias (label) VALUES ($1) ON CONFLICT (label) DO NOTHING', [label]);
+  await pool.query('INSERT INTO dias (label, fecha) VALUES ($1,$2) ON CONFLICT (label) DO NOTHING', [label, fecha || null]);
   res.json({ ok: true });
 });
 
